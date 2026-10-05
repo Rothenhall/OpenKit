@@ -18,7 +18,7 @@ import {
   parseAnalyse,
   parseCustomScenario,
   parseProfileUpdate,
-  parseLead,
+  parseReportRequest,
   parseStartCall,
   parseTurn,
 } from './dto/leads.dto.js';
@@ -45,7 +45,6 @@ const callView = (c: Call) => ({
   turns: c.turns,
   practiceMinutes: c.practiceMinutes,
   endsAt: c.endsAt,
-  scorecard: c.scorecard,
 });
 
 /** Ceilings across all visitors, so a wave of traffic cannot run up the Sarvam bill. */
@@ -116,27 +115,36 @@ export class LeadsController {
     return callView(await this.leads.getCall(id));
   }
 
-  /** Hangs up and returns the scorecard. */
+  /**
+   * Hangs up. The scorecard is not returned, it is emailed as a PDF once the
+   * visitor gives an address. Set EXPOSE_SCORECARD=true to get it back here
+   * for local scripts.
+   */
   @Post('calls/:id/end')
   @HttpCode(200)
   @RateLimit('score', 30, HOUR)
   async endCall(@Param('id') id: string) {
-    return this.leads.endCall(id);
+    await this.leads.finish(id);
+    if (process.env.EXPOSE_SCORECARD === 'true') {
+      return {
+        ended: true,
+        scorecard: await this.leads.scorecard(id).catch(() => undefined),
+      };
+    }
+    return { ended: true };
   }
 
-  /** The scorecard form: someone asks to be contacted. Saved to Postgres. */
-  @Post('calls/:id/lead')
+  /**
+   * The email gate. The visitor gives an address (and optionally a phone
+   * number) and the PDF report is emailed to them. That is the lead.
+   */
+  @Post('calls/:id/report')
   @HttpCode(200)
-  @RateLimit('lead', 10, HOUR)
-  async captureLead(@Param('id') id: string, @Body() body: unknown) {
-    const lead = parseLead(body);
-    if (!lead.spam) await this.capture.capture(id, lead);
-    return { ok: true };
-  }
-
-  @Get('calls/:id/scorecard')
-  @RateLimit('score', 30, HOUR)
-  scorecard(@Param('id') id: string) {
-    return this.leads.scorecard(id);
+  @RateLimit('report', 10, HOUR)
+  async requestReport(@Param('id') id: string, @Body() body: unknown) {
+    const request = parseReportRequest(body);
+    if (request.spam) return { ok: true };
+    const { alreadySent } = await this.capture.requestReport(id, request);
+    return { ok: true, alreadySent };
   }
 }

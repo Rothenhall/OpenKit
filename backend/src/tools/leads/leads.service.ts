@@ -279,25 +279,44 @@ export class LeadsService {
     return (await this.store.loadCall(callId)).call;
   }
 
-  /** Hangs up. Scores the call once, and returns the same scorecard on repeat calls. */
-  async endCall(callId: string): Promise<Scorecard> {
+  private readonly scoringJobs = new Map<string, Promise<Scorecard>>();
+
+  /**
+   * Hangs up and starts the scorecard in the background. The scorecard is
+   * never handed to the browser, it goes into the emailed report, so by the
+   * time the visitor types their address it is usually ready.
+   */
+  async finish(callId: string): Promise<void> {
     const { call } = await this.store.loadCall(callId);
-    call.ended = true;
-    await this.store.saveCall(call);
-    return this.scorecard(callId);
+    if (!call.ended) {
+      call.ended = true;
+      await this.store.saveCall(call);
+    }
+    void this.scorecard(callId).catch((error: Error) =>
+      this.logger.warn(`Scoring failed: ${error.message}`),
+    );
   }
 
+  /** The scorecard, computed once even when it is asked for several times at once. */
   async scorecard(callId: string): Promise<Scorecard> {
     const { session, call } = await this.store.loadCall(callId);
     if (call.scorecard) return call.scorecard;
     if (!call.turns.some((t) => t.speaker === 'user')) {
       throw new BadRequestException(
-        'Have a conversation first, then ask for the scorecard',
+        'Have a conversation first, then ask for the report',
       );
     }
-    call.scorecard = await this.scoring.score(session.profile, call);
-    await this.store.saveCall(call);
-    return call.scorecard;
+    let job = this.scoringJobs.get(callId);
+    if (!job) {
+      job = (async () => {
+        const card = await this.scoring.score(session.profile, call);
+        call.scorecard = card;
+        await this.store.saveCall(call);
+        return card;
+      })().finally(() => this.scoringJobs.delete(callId));
+      this.scoringJobs.set(callId, job);
+    }
+    return job;
   }
 }
 

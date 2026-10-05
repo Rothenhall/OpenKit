@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { DbModule } from '../../common/db/db.module.js';
+import { MailModule } from '../../common/mail/mail.module.js';
 import { RateLimitModule } from '../../common/rate-limit/rate-limit.module.js';
 import { SarvamModule } from '../../common/sarvam/sarvam.module.js';
 import { CallService } from './call/call.service.js';
@@ -16,7 +17,7 @@ import { VoiceGateway } from './voice/voice.gateway.js';
 import { VoiceService } from './voice/voice.service.js';
 
 @Module({
-  imports: [SarvamModule, RateLimitModule, DbModule],
+  imports: [SarvamModule, RateLimitModule, DbModule, MailModule],
   controllers: [LeadsController],
   providers: [
     LeadsService,

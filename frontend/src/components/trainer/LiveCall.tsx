@@ -9,7 +9,7 @@ import {
   PlayIcon,
   WaveIcon,
 } from "@/components/icons";
-import { AiVerdict, RepVerdict } from "@/components/trainer/Verdict";
+import { ReportGate } from "@/components/trainer/ReportGate";
 import { useVoiceCall } from "@/hooks/useVoiceCall";
 import {
   LANGUAGE_LABEL,
@@ -236,25 +236,14 @@ export function LiveCall({ initialCall, company, onExit }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [v]);
 
-  if (v.score) {
+  if (v.complete) {
     return (
-      <div className="thin-scroll anim-fade-up min-h-0 flex-1 overflow-y-auto rounded-2xl">
-        {youAreRep ? (
-          <RepVerdict
-            score={v.score}
-            company={company}
-            callId={v.call.callId}
-            onRetry={onExit}
-          />
-        ) : (
-          <AiVerdict
-            score={v.score}
-            company={company}
-            callId={v.call.callId}
-            onRetry={onExit}
-          />
-        )}
-      </div>
+      <ReportGate
+        callId={v.call.callId}
+        company={company}
+        youAreRep={youAreRep}
+        onRetry={onExit}
+      />
     );
   }
 

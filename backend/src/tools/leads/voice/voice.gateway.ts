@@ -24,14 +24,14 @@ import { VoiceService } from './voice.service.js';
  * Client to server:
  *   audio  { audio: base64, mime: "audio/webm" }  one finished utterance
  *   text   { text: string }                         typed line, agent still answers in voice
- *   end    {}                                       hang up and get the scorecard
+ *   end    {}                                       hang up
  *
  * Server to client:
  *   ready      { callId, language }
  *   agent      { text, language, audio?, ended }
  *   heard      { text }                             what the user's audio was transcribed as
  *   no_speech  {}                                   nothing was heard, try again
- *   scorecard  { ... }
+ *   call_complete {}                                  the call is over. The report is emailed, never sent here
  *   error      { message }
  */
 /**
@@ -45,7 +45,7 @@ import { VoiceService } from './voice.service.js';
  *   interrupt  { playedSeq? }                         the user talked over the agent, stop it now.
  *                                                     playedSeq is the last clip that started playing,
  *                                                     so history keeps only what was actually heard.
- *   end        {}                                     hang up and get the scorecard
+ *   end        {}                                     hang up
  *
  * Server to client:
  *   ready        { callId, language }
@@ -55,7 +55,7 @@ import { VoiceService } from './voice.service.js';
  *                                                     the full line. Carries audio only for the
  *                                                     greeting. After chunks it closes the turn.
  *   no_speech    {}                                   nothing was heard, try again
- *   scorecard    { ... }
+ *   call_complete {}                                  the call is over, ask for an email address
  *   error        { message }
  *
  * A new turn or an `interrupt` cancels the reply in flight, so the user can
@@ -211,7 +211,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return this.turn(
       client,
       async (call) => {
-        this.send(client, 'scorecard', await this.leads.endCall(call.id));
+        this.send(client, 'call_complete', {});
+        await this.leads.finish(call.id);
       },
       false,
     );
@@ -233,8 +234,11 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       (event, data) => this.send(client, event, data),
       heardAt,
     );
-    if (call.ended && !signal.aborted)
-      this.send(client, 'scorecard', await this.leads.scorecard(call.id));
+    if (call.ended && !signal.aborted) {
+      // Tell the page first, scoring runs in the background.
+      this.send(client, 'call_complete', {});
+      await this.leads.finish(call.id);
+    }
   }
 
   /** One turn: rate limited, cancels whatever the agent was doing, then runs in order. */

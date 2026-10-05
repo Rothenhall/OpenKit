@@ -14,7 +14,6 @@ import {
   api,
   voiceSocketUrl,
   type CallView,
-  type Scorecard,
 } from "@/lib/leads";
 
 export type WsStatus = "off" | "connecting" | "live" | "error";
@@ -68,7 +67,9 @@ interface Segment {
  */
 export function useVoiceCall({ initialCall, onError }: Options) {
   const [call, setCall] = useState<CallView>(initialCall);
-  const [score, setScore] = useState<Scorecard | null>(null);
+  // True once the call is over. The scorecard itself never reaches the
+  // browser: it is emailed as a PDF when the visitor gives an address.
+  const [complete, setComplete] = useState(false);
   const [busy, setBusy] = useState(false);
   const [begun, setBegun] = useState(false);
   const [waitingReply, setWaitingReply] = useState(false);
@@ -128,10 +129,10 @@ export function useVoiceCall({ initialCall, onError }: Options) {
   const streamingTurnRef = useRef(false);
   const levelRafRef = useRef(0);
   const speakWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingScoreRef = useRef<Scorecard | null>(null);
+  const pendingCompleteRef = useRef(false);
 
   const callRef = useRef(call);
-  const scoreRef = useRef(score);
+  const completeRef = useRef(complete);
   const endCallRef = useRef<() => Promise<void>>(async () => undefined);
   const begunRef = useRef(false);
   const mutedRef = useRef(false);
@@ -144,7 +145,7 @@ export function useVoiceCall({ initialCall, onError }: Options) {
 
   useEffect(() => {
     callRef.current = call;
-    scoreRef.current = score;
+    completeRef.current = complete;
     begunRef.current = begun;
     mutedRef.current = muted;
     speakingRef.current = speaking;
@@ -258,12 +259,11 @@ export function useVoiceCall({ initialCall, onError }: Options) {
     speakingRef.current = false;
     setSpeaking(false);
     setOrbLevel(0.12);
-    // A scorecard that arrived while the agent was still saying goodbye
-    // waits for the last word instead of cutting it off.
-    const held = pendingScoreRef.current;
-    if (held) {
-      pendingScoreRef.current = null;
-      showScore(held);
+    // The end of the call that arrived while the agent was still saying
+    // goodbye waits for the last word instead of cutting it off.
+    if (pendingCompleteRef.current) {
+      pendingCompleteRef.current = false;
+      showComplete();
     }
   }
 
@@ -354,11 +354,11 @@ export function useVoiceCall({ initialCall, onError }: Options) {
 
   // ----------------------------------------------------------------- the call
 
-  function showScore(card: Scorecard) {
+  function showComplete() {
     setWaitingReply(false);
     stopMic();
-    setScore(card);
-    setCall((c) => ({ ...c, ended: true, scorecard: card }));
+    setComplete(true);
+    setCall((c) => ({ ...c, ended: true }));
   }
 
   function stopMic() {
@@ -385,7 +385,7 @@ export function useVoiceCall({ initialCall, onError }: Options) {
 
   async function endCall() {
     const c = callRef.current;
-    if (c.ended && scoreRef.current) return;
+    if (c.ended && completeRef.current) return;
     stopMic();
     stopPlayback();
     setBusy(true);
@@ -393,9 +393,8 @@ export function useVoiceCall({ initialCall, onError }: Options) {
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         send("end");
       } else {
-        const s = await api.endCall(c.callId);
-        setScore(s);
-        setCall((prev) => ({ ...prev, ended: true, scorecard: s }));
+        await api.endCall(c.callId);
+        showComplete();
       }
     } catch (e) {
       fail(e instanceof Error ? e.message : "End call failed");
@@ -414,7 +413,7 @@ export function useVoiceCall({ initialCall, onError }: Options) {
     const tick = () => {
       const left = initialCall.endsAt - Date.now();
       setSecondsLeft(left);
-      if (left <= 0 && !callRef.current.ended && !scoreRef.current) {
+      if (left <= 0 && !callRef.current.ended && !completeRef.current) {
         void endCallRef.current();
       }
     };
@@ -454,7 +453,7 @@ export function useVoiceCall({ initialCall, onError }: Options) {
         return;
       }
       const alive =
-        begunRef.current && !callRef.current.ended && !scoreRef.current;
+        begunRef.current && !callRef.current.ended && !completeRef.current;
       if (!alive) {
         setWsStatus("off");
         return;
@@ -573,14 +572,13 @@ export function useVoiceCall({ initialCall, onError }: Options) {
           loopTick();
         }
       }
-    } else if (event === "scorecard") {
-      const card = data as unknown as Scorecard;
+    } else if (event === "call_complete") {
       if (speakingRef.current) {
-        // Let the agent finish its last line before the scorecard takes over.
-        pendingScoreRef.current = card;
+        // Let the agent finish its last line before the email form takes over.
+        pendingCompleteRef.current = true;
         stopMic();
       } else {
-        showScore(card);
+        showComplete();
       }
     } else if (event === "error" || event === "no_speech") {
       setWaitingReply(false);
@@ -634,7 +632,7 @@ export function useVoiceCall({ initialCall, onError }: Options) {
    */
   function loopTick() {
     if (!begunRef.current || mutedRef.current || micDeniedRef.current) return;
-    if (scoreRef.current || callRef.current.ended) return;
+    if (completeRef.current || callRef.current.ended) return;
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     void startMic();
@@ -683,7 +681,7 @@ export function useVoiceCall({ initialCall, onError }: Options) {
       micStartingRef.current ||
       mutedRef.current ||
       micDeniedRef.current ||
-      scoreRef.current ||
+      completeRef.current ||
       callRef.current.ended
     )
       return;
@@ -699,7 +697,7 @@ export function useVoiceCall({ initialCall, onError }: Options) {
         },
       });
       // Muted or ended while the permission prompt was open.
-      if (mutedRef.current || scoreRef.current || callRef.current.ended) {
+      if (mutedRef.current || completeRef.current || callRef.current.ended) {
         stream.getTracks().forEach((t) => t.stop());
         return;
       }
@@ -830,7 +828,7 @@ export function useVoiceCall({ initialCall, onError }: Options) {
     if (
       seg.voiceMs < MIN_VOICE_MS ||
       callRef.current.ended ||
-      scoreRef.current ||
+      completeRef.current ||
       !begunRef.current
     )
       return;
@@ -853,7 +851,7 @@ export function useVoiceCall({ initialCall, onError }: Options) {
 
   return {
     call,
-    score,
+    complete,
     busy,
     begun,
     waitingReply,

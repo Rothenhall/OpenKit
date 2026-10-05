@@ -7,7 +7,6 @@ import { LiveCall } from "@/components/trainer/LiveCall";
 import { AmbientField } from "@/components/workspace/AmbientField";
 import { SetupModal } from "@/components/workspace/SetupModal";
 import { WorkspaceHeader } from "@/components/workspace/WorkspaceHeader";
-import { loadHistory, outcomeLabel } from "@/lib/history";
 import type { CallView, SessionView } from "@/lib/leads";
 
 const DIMENSIONS = ["Opening", "Discovery", "Objection handling", "Close"];
@@ -28,7 +27,6 @@ const STEPS = [
 ];
 
 function GuideCard() {
-  const [history] = useState(loadHistory);
   return (
     <div className="rounded-[20px] border border-line bg-white/70 p-4">
       <p className="eyebrow">How a call works</p>
@@ -54,45 +52,11 @@ function GuideCard() {
           </li>
         ))}
       </ul>
-      <p className="eyebrow mt-4">Recent practice</p>
-      {history.length === 0 ? (
-        <p className="mt-2 text-sm leading-relaxed text-ink/60">
-          Nothing yet. Your finished calls land here with their outcomes.
-        </p>
-      ) : (
-        <ul className="mt-2 space-y-1.5">
-          {history.map((h) => (
-            <li
-              key={`${h.at}-${h.outcome}`}
-              className="flex items-center justify-between gap-2 rounded-lg border border-line/70 bg-canvas px-2.5 py-1.5 text-xs"
-            >
-              <span className="min-w-0">
-                <span className="block truncate font-medium">
-                  {h.company || (h.mode === "you-sell" ? "You sold" : "AI sold")}
-                </span>
-                <span className="block text-ink/55">
-                  {new Date(h.at).toLocaleDateString(undefined, {
-                    month: "short",
-                    day: "numeric",
-                  })}
-                  {" . "}
-                  {outcomeLabel(h.outcome)} . {h.avg.toFixed(1)}/5
-                </span>
-              </span>
-              <span
-                aria-hidden
-                className={`h-2 w-2 shrink-0 rounded-full ${
-                  h.outcome === "next_step_agreed"
-                    ? "bg-emerald-600"
-                    : h.outcome === "callback"
-                      ? "bg-copper"
-                      : "bg-ink/25"
-                }`}
-              />
-            </li>
-          ))}
-        </ul>
-      )}
+      <p className="eyebrow mt-4">Your report</p>
+      <p className="mt-2 text-sm leading-relaxed text-ink/70">
+        When the call ends, enter your email. The full PDF report, with your
+        scores and better lines, lands in your inbox.
+      </p>
     </div>
   );
 }

@@ -6,7 +6,7 @@ conversation.
 
 The first tool is the **Sales Call Trainer**. Paste your company website, get realistic buyer
 scenarios built from the real offering, then take a live voice call. Either you sell and an AI
-buyer pushes back, or the AI cold calls you. You get a scorecard with coaching at the end.
+buyer pushes back, or the AI cold calls you. At the end you enter your email and the PDF report, with your scores and better lines, is emailed to you. The report is never shown on screen, so the email is the lead.
 Voices and understanding run on [Sarvam](https://sarvam.ai), so it works in Indian languages and
 in code-mixed speech such as Hindi and English in one sentence.
 
@@ -49,9 +49,10 @@ Open http://localhost:3000, allow the microphone, and use headphones for the cle
 If your machine blocks port 3000 (some Windows setups do), run `npx next dev -p 3100`. In
 development the API accepts any localhost port.
 
-Lead capture needs a Postgres database. Set `DATABASE_URL` in `backend/.env` (we use
-[Neon](https://neon.com)). The table is created on first use, and the rest of the tool works
-without it.
+Lead capture and the emailed report need two things. A Postgres database: set `DATABASE_URL` in
+`backend/.env` (we use [Neon](https://neon.com), tables are created on first use). And Gmail SMTP:
+set `SMTP_USER` and `SMTP_PASSWORD` (a Google app password). Without them the tool still runs, and
+the email form reports that it cannot send yet.
 
 ## Checks
 

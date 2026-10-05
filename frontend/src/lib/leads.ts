@@ -94,19 +94,6 @@ export interface CallView {
   turns: Turn[];
   practiceMinutes: number;
   endsAt: number;
-  scorecard?: Scorecard;
-}
-
-export interface Scorecard {
-  outcome: string;
-  summary: string;
-  dimensions: { name: string; score: number; note: string }[];
-  strengths: string[];
-  improvements: string[];
-  betterMoves: string[];
-  coaching: string[];
-  verdict: string;
-  benefits: string[];
 }
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
@@ -147,23 +134,18 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ message }),
     }),
-  captureLead: (
-    callId: string,
-    lead: {
-      name: string;
-      email: string;
-      phone?: string;
-      role?: string;
-      consent: boolean;
-      website?: string;
-    },
-  ) =>
-    req<{ ok: true }>(`/tools/leads/calls/${callId}/lead`, {
-      method: "POST",
-      body: JSON.stringify(lead),
-    }),
+  /** Hangs up. The report is not returned, it is emailed by `requestReport`. */
   endCall: (callId: string) =>
-    req<Scorecard>(`/tools/leads/calls/${callId}/end`, { method: "POST" }),
+    req<{ ended: true }>(`/tools/leads/calls/${callId}/end`, { method: "POST" }),
+  /** The email gate: the PDF report is sent to this address. */
+  requestReport: (
+    callId: string,
+    body: { email: string; phone?: string; website?: string },
+  ) =>
+    req<{ ok: true; alreadySent?: boolean }>(
+      `/tools/leads/calls/${callId}/report`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
   addCustomScenario: (
     sessionId: string,
     agentRole: "rep" | "lead",

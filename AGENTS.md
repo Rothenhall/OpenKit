@@ -90,7 +90,7 @@ Rules:
 
 | Tool | Status | Notes |
 | --- | --- | --- |
-| `leads` | Built, ready to embed | Sarvam-powered sales call agent. Paste a website, get realistic scenarios, then take a live voice call as the rep or practise closing against an AI lead. Streaming voice, barge in, scorecard, and a consent based follow-up form that saves leads to Postgres. Sessions in memory, run one instance. See `backend/src/tools/leads/README.md`. |
+| `leads` | Built, ready to embed | Sarvam-powered sales call agent. Paste a website, get realistic scenarios, then take a live voice call as the rep or practise closing against an AI lead. Streaming voice, barge in, and an email gate: the scorecard is never shown, it is emailed as a PDF (Gmail SMTP) and the address becomes the lead, saved to Postgres. Sessions are kept in Postgres when `DATABASE_URL` is set, so it can run on serverless hosting. See `backend/src/tools/leads/README.md`. |
 
 ## Commands
 
@@ -112,7 +112,7 @@ npm run lint
 ## Current state
 
 `leads` is built end to end. `common/` holds the Sarvam client, rate limiting and HTTP helpers
-(origin allow list, client address) and `common/db/` (Postgres on Neon, lazy, used only for lead capture).
-Calls and sessions still live in memory. There is no auth, on purpose: it is a free tool.
+(origin allow list, client address), `common/db/` (Postgres on Neon, lazy) and `common/mail/` (Gmail SMTP).
+Without `DATABASE_URL` sessions live in memory, as in local development. There is no auth, on purpose: it is a free tool.
 
 Deploying: see "Deploying and embedding" in `backend/src/tools/leads/README.md`.

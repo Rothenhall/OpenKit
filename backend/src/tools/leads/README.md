@@ -5,7 +5,7 @@ A voice-first sales call tool. Paste a website and Leads reads it, builds a comp
 - **Agent is the rep** (`agentRole: "rep"`): the AI calls as that company's representative. The user plays the lead.
 - **Agent is the lead** (`agentRole: "lead"`): the AI plays a realistic prospect. The user plays the rep and practises closing.
 
-Users can also add their own scenario from a plain sentence. Every call ends with a scorecard on how the rep did.
+Users can also add their own scenario from a plain sentence. Every call ends with an emailed PDF report on how the rep did.
 
 ## Funnel step
 
@@ -14,7 +14,7 @@ Users can also add their own scenario from a plain sentence. Every call ends wit
 
 ## Status
 
-Complete: site analysis, scenarios, streaming voice calls with barge in, scorecard, rate limits, and the Next.js front end in `frontend/`. No database. Sessions live in memory for an hour and are lost on restart, so run one instance.
+Complete: site analysis, scenarios, streaming voice calls with barge in, the emailed report, rate limits, and the Next.js front end in `frontend/`. No database. Sessions live in memory for an hour and are lost on restart, so run one instance.
 
 Voice streams the reply. The client records one utterance (16 kHz WAV with a short pre-roll, so the first syllable is never clipped), the server transcribes it, and the chat model's tokens are cut into sentences. Each sentence goes to text to speech the moment it is complete, in parallel, and the clips are sent in order. The browser schedules them back to back, so the agent starts talking about when its first sentence is written, not after the whole answer. Barge in works end to end: the user talking over the agent stops playback at once and sends `interrupt`, which aborts the model and speech in flight. The greeting's speech starts when the call is created, so it is ready when the user taps Begin. A reply that comes back empty is retried once, then a spoken fallback line is used, and per turn STT, first audio and TTS timings log at debug level.
 
@@ -33,7 +33,7 @@ npm run call -- rothenhall.com           # terminal 2, text call with a random l
 npm run call -- rothenhall.com te-IN --voice   # Telugu, lead replies are spoken
 ```
 
-You play the rep. Type `/end` to hang up and get the scorecard.
+You play the rep. Type `/end` to hang up. The scorecard is not returned by the API (it is emailed), so to print it here start the server with `EXPOSE_SCORECARD=true`.
 
 ## HTTP routes
 
@@ -45,9 +45,9 @@ You play the rep. Type `/end` to hang up and get the scorecard.
 | `POST /tools/leads/sessions/:id/scenarios` | `{ agentRole, description, difficulty?, language? }`. Adds a custom scenario. |
 | `POST /tools/leads/sessions/:id/calls` | `{ scenarioId?, agentRole?, language?, practiceMinutes? }`. Starts a call and the agent speaks first. Leave out `scenarioId` for a random scenario of `agentRole` (default `lead`). `practiceMinutes` is 1 to 10, default 5. The call ends at the limit. |
 | `POST /tools/leads/calls/:id/turns` | `{ message }`. Text turn, returns the updated transcript. |
-| `GET /tools/leads/calls/:id` | Transcript, voice and scorecard so far. |
-| `POST /tools/leads/calls/:id/end` | Hang up and get the scorecard. |
-| `GET /tools/leads/calls/:id/scorecard` | Scorecard, scored once and cached. |
+| `GET /tools/leads/calls/:id` | Transcript and voice so far. |
+| `POST /tools/leads/calls/:id/end` | Hang up. Returns `{ ended: true }` and starts scoring in the background. |
+| `POST /tools/leads/calls/:id/report` | The email gate. `{ email, phone? }`. Emails the PDF report and saves the lead. |
 
 Languages: `en-IN hi-IN bn-IN gu-IN kn-IN ml-IN mr-IN od-IN pa-IN ta-IN te-IN`.
 
@@ -66,7 +66,7 @@ Connect to `ws://<host>/tools/leads/voice?callId=<id>` after starting a call. Me
 | server | `no_speech` | Nothing was heard, try again. |
 | client | `text` | `{ text }`. A typed line. The agent still answers in voice. |
 | client | `end` | Hang up. |
-| server | `scorecard` | Sent after `end`, or when the agent ends the call. |
+| server | `call_complete` | `{}`. The call is over, after `end` or when the agent ends it. The scorecard is never sent to the browser. |
 | server | `error` | `{ message }` |
 
 Turns run one at a time per connection, in order. A new `audio`, `text` or `end`, or an `interrupt`, cancels the reply in flight, so the user can always cut in. `npm run latency` prints time to first audio for a few typed lines.
@@ -156,33 +156,49 @@ The page needs https, since browsers only allow the microphone on secure pages. 
 that cannot do live audio the Start button is disabled with a plain explanation.
 
 **Funnel step.** This tool attracts sales and growth leaders who want to practise or see AI
-calling. The next step is the follow-up form on the scorecard, which saves the visitor as a lead.
+calling. The next step is the email form at the end of the call, which sends the report and saves the visitor as a lead.
 
-## Lead capture
+## The email gate and lead capture
 
-The scorecard ends with a short form: name, work email, optional role and phone, and a consent
-checkbox that must be ticked. `POST /tools/leads/calls/:id/lead` validates it and writes one row
-to `lead_captures` in Postgres (Neon, `DATABASE_URL`). The table is created on first use.
+The scorecard is never shown on screen and no route returns it. When a call ends the page asks for
+one email address, with an optional phone number, and the PDF report is sent there. That exchange
+is the lead.
 
-- **The server reads the facts, not the form.** Company, site, mode, scenario, difficulty,
-  language, outcome and average score come from the call itself, so a lead cannot be forged.
-- **One row per call.** Submitting again for the same call updates it instead of duplicating.
-- **Spam.** A hidden field drops bots quietly, and the route is rate limited per address.
-- **Team alert.** Set `LEAD_WEBHOOK_URL` and every new lead is posted there (Slack incoming
-  webhook format, plain JSON for Zapier or Make). A failing webhook never affects the visitor.
-- **If the database is down** the form says it could not save and the visitor can retry. Nothing
-  else in the tool depends on it.
-- **Privacy.** The consent line links to the privacy policy: set `NEXT_PUBLIC_PRIVACY_URL` on the
-  frontend, and publish that page before launch. Leads are personal data, so plan how a person
+- **Flow.** `call_complete` arrives, scoring starts in the background, and the visitor types their
+  address. `POST /tools/leads/calls/:id/report` saves the lead, builds the PDF (`report/report-pdf.ts`,
+  Noto fonts for Latin and all nine Indian scripts, so Hindi, Tamil or Telugu lines print correctly)
+  and emails it over Gmail SMTP (`common/mail/`).
+- **The report.** A branded PDF: verdict and average score, four scored dimensions, what went well,
+  where to improve, better lines (or what an AI caller brings, in AI-sells mode), a Rothenhall call to
+  action, and the full transcript.
+- **The server reads the facts, not the form.** Company, mode, scenario, difficulty, language,
+  outcome and score come from the call itself, so a lead cannot be forged.
+- **Table `lead_captures`**, one row per call, created on first use: email, phone, company, site,
+  mode, scenario, difficulty, language, outcome, average score, call length, `report_status`,
+  `report_sent_at`, `report_attempts`.
+- **Abuse limits**, so the form cannot be used to mail strangers. At most 3 sends per call, at most
+  3 reports a day to one address, a repeat request for the same address sends nothing, 10 requests
+  an hour per visitor, a hidden field that drops bots, and a call must contain a conversation.
+- **Team alert.** Set `LEAD_WEBHOOK_URL` and every new lead is posted there (Slack incoming webhook
+  format, plain JSON for Zapier or Make). Set `MAIL_BCC` to get a copy of every report. Neither
+  can affect the visitor.
+- **If email or the database is down** the form says so and the visitor can retry, nothing else
+  depends on them.
+- **Privacy.** The notice under the button links to the privacy policy: set `NEXT_PUBLIC_PRIVACY_URL`
+  on the frontend, and publish that page before launch. Leads are personal data, so plan how a person
   asks to be removed (delete the row by email).
+
+Gmail SMTP: `SMTP_USER` is the Google account that sends and `SMTP_PASSWORD` is an app password for
+it (2 step verification on, then Google Account, Security, App passwords). Host and port default to
+`smtp.gmail.com:465`. Gmail only sends as that account or a verified alias, so keep `MAIL_FROM` to one
+of those, and expect the usual Gmail sending limits (about 500 a day, 2,000 on Workspace).
 
 Read recent leads:
 
 ```sql
-select created_at, name, email, role, company_name, outcome, avg_score
+select created_at, email, phone, company_name, outcome, avg_score, report_status
 from lead_captures order by created_at desc limit 50;
 ```
-
 
 ## Testing
 

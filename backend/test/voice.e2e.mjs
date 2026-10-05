@@ -150,6 +150,26 @@ describe('voice protocol', () => {
     c.ws.close();
   });
 
+  it('announces the end of the call without sending a scorecard', async () => {
+    const c = await connect();
+    await c.until((e) => e.event === 'ready');
+    c.send('end');
+    await c.until((e) => e.event === 'call_complete');
+    await sleep(200);
+    assert.equal(c.events.some((e) => e.event === 'scorecard'), false);
+    c.ws.close();
+  });
+
+  it('announces the end of the call without sending a scorecard', async () => {
+    const c = await connect();
+    await c.until((e) => e.event === 'ready');
+    c.send('end');
+    await c.until((e) => e.event === 'call_complete');
+    await sleep(200);
+    assert.equal(c.events.some((e) => e.event === 'scorecard'), false);
+    c.ws.close();
+  });
+
   it('refuses a browser origin that is not allowed', async () => {
     const c = await connect(callId, { Origin: 'https://evil.example' });
     const error = await c.until((e) => e.event === 'error');
