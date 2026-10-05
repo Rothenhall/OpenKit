@@ -35,4 +35,8 @@ async function bootstrap() {
   app.enableShutdownHooks();
   await app.listen(process.env.PORT ?? 3000);
 }
-await bootstrap();
+// CommonJS build: no top level await. Startup failures are logged and exit non zero.
+bootstrap().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
