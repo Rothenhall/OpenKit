@@ -176,6 +176,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (signal.aborted) {
         // Superseded while transcribing. Keep the words so context is not lost.
         await this.leads.addUserTurn(call.id, text, language);
+        await this.leads.saveCall(call.id);
         return;
       }
       await this.answer(client, call, text, language, signal, received);

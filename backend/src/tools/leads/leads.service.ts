@@ -240,7 +240,14 @@ export class LeadsService {
     detectedLanguage?: unknown,
   ): Promise<void> {
     const { call } = await this.store.loadCall(callId);
+    // No save here: the reply starts straight away and the end of the turn
+    // saves everything. Waiting on the database now would delay the answer.
     this.calls.addUserTurn(call, message, detectedLanguage);
+  }
+
+  /** Saves the call to the database, for turns that end without a reply. */
+  async saveCall(callId: string): Promise<void> {
+    const { call } = await this.store.loadCall(callId);
     await this.store.saveCall(call);
   }
 
@@ -255,8 +262,10 @@ export class LeadsService {
       await this.calls.speakStream(session.profile, call, signal, onSentence);
     } finally {
       // Even a turn cut short by a barge in is saved, so a reconnect to
-      // another instance resumes from what was actually said.
-      await this.store.saveCall(call);
+      // another instance resumes from what was actually said. Not awaited:
+      // the listener should not wait on a database trip, and the next turn
+      // is seconds away.
+      void this.store.saveCall(call);
     }
   }
 

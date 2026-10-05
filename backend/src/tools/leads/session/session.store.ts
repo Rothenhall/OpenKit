@@ -168,16 +168,23 @@ export class SessionStore {
     if (!this.durable) return;
     const sessionId = this.callIndex.get(call.id);
     if (!sessionId) return;
+    // One round trip: save the call and keep its session alive in the same
+    // statement. The database can be far from the server, so each trip counts.
     await this.run(
-      `insert into openkit_calls (id, session_id, data)
-       values ($1, $2, $3::jsonb)
-       on conflict (id) do update set data = excluded.data, updated_at = now()`,
-      [call.id, sessionId, JSON.stringify(call)],
-    );
-    // A live call keeps its session alive in the database too.
-    await this.run(
-      'update openkit_sessions set expires_at = $2, updated_at = now() where id = $1',
-      [sessionId, new Date(Date.now() + TTL_MS)],
+      `with saved as (
+         insert into openkit_calls (id, session_id, data)
+         values ($1, $2, $3::jsonb)
+         on conflict (id) do update set data = excluded.data, updated_at = now()
+         returning session_id
+       )
+       update openkit_sessions set expires_at = $4, updated_at = now()
+       where id in (select session_id from saved)`,
+      [
+        call.id,
+        sessionId,
+        JSON.stringify(call),
+        new Date(Date.now() + TTL_MS),
+      ],
     );
   }
 
