@@ -12,7 +12,18 @@ export function allowedOrigins(): string[] {
     .split(',')
     .map((o) => o.trim().replace(/\/$/, ''))
     .filter(Boolean);
-  return configured.length ? configured : DEFAULT_ORIGINS;
+  // On Vercel the app is served from the deployment's own hostnames, which
+  // differ for every preview. Vercel provides them, so the page that was
+  // served by this deployment is always allowed to call it.
+  const vercel = [
+    process.env.VERCEL_URL,
+    process.env.VERCEL_BRANCH_URL,
+    process.env.VERCEL_PROJECT_PRODUCTION_URL,
+  ]
+    .filter((host): host is string => Boolean(host))
+    .map((host) => `https://${host}`);
+  const all = [...configured, ...vercel];
+  return all.length ? all : DEFAULT_ORIGINS;
 }
 
 /**

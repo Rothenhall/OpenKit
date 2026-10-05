@@ -75,7 +75,7 @@ export class VoiceService {
     const raw = await this.sarvam.transcribe(audio, mime, 'unknown');
     const heard = {
       ...raw,
-      text: correctBrandNames(raw.text, this.leads.brandTerms(call.id)),
+      text: correctBrandNames(raw.text, await this.leads.brandTerms(call.id)),
     };
     this.logger.debug(
       `call ${call.id} stt ${Date.now() - started}ms bytes=${audio.byteLength} lang=${heard.language ?? '?'} chars=${heard.text.length}`,
@@ -97,7 +97,7 @@ export class VoiceService {
     emit: Emit,
     heardAt = Date.now(),
   ): Promise<void> {
-    this.leads.addUserTurn(call.id, userText, detectedLanguage);
+    await this.leads.addUserTurn(call.id, userText, detectedLanguage);
     await this.streamAgent(call, signal, emit, heardAt);
   }
 

@@ -10,7 +10,12 @@ import {
   encodeWav,
   resample,
 } from "@/lib/audio";
-import { WS_URL, api, type CallView, type Scorecard } from "@/lib/leads";
+import {
+  api,
+  voiceSocketUrl,
+  type CallView,
+  type Scorecard,
+} from "@/lib/leads";
 
 export type WsStatus = "off" | "connecting" | "live" | "error";
 
@@ -431,7 +436,7 @@ export function useVoiceCall({ initialCall, onError }: Options) {
       previous.close();
     }
     setWsStatus("connecting");
-    const ws = new WebSocket(`${WS_URL}/tools/leads/voice?callId=${callId}`);
+    const ws = new WebSocket(voiceSocketUrl(callId));
     wsRef.current = ws;
 
     ws.onopen = () => {

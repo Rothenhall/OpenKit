@@ -130,20 +130,22 @@ export class LeadsService {
     at(`scenarios ${asRep.length + asLead.length}`);
     this.logger.debug(`analyse done +${Date.now() - started}ms`);
 
-    return this.store.create(
+    const session = this.store.create(
       pages[0].url,
       profile,
       [...asRep, ...asLead],
       understanding,
     );
+    await this.store.saveSession(session);
+    return session;
   }
 
-  getSession(id: string): Session {
-    return this.store.get(id);
+  getSession(id: string): Promise<Session> {
+    return this.store.load(id);
   }
 
   async updateProfile(id: string, update: ProfileUpdateDto): Promise<Session> {
-    const session = this.store.get(id);
+    const session = await this.store.load(id);
     session.profile = { ...session.profile, ...update.profile };
     if (update.regenerate) {
       if (!session.understanding) {
@@ -166,11 +168,12 @@ export class LeadsService {
       const custom = session.scenarios.filter((s) => s.custom);
       session.scenarios = [...asRep, ...asLead, ...custom];
     }
+    await this.store.saveSession(session);
     return session;
   }
 
   async addCustomScenario(id: string, dto: CustomScenarioDto) {
-    const session = this.store.get(id);
+    const session = await this.store.load(id);
     if (session.scenarios.filter((s) => s.custom).length >= 10) {
       throw new BadRequestException(
         'You can add up to 10 custom scenarios per session',
@@ -182,12 +185,13 @@ export class LeadsService {
       dto,
     );
     session.scenarios.push(scenario);
+    await this.store.saveSession(session);
     return scenario;
   }
 
   /** Starts a call. With no scenario id, picks a random scenario of the given role. */
   async startCall(id: string, dto: StartCallDto): Promise<Call> {
-    const session = this.store.get(id);
+    const session = await this.store.load(id);
     const scenario = dto.scenarioId
       ? session.scenarios.find((s) => s.id === dto.scenarioId)
       : pickRandom(
@@ -207,6 +211,7 @@ export class LeadsService {
       dto.practiceMinutes,
     );
     this.store.addCall(session, call);
+    await this.store.saveCall(call);
     return call;
   }
 
@@ -215,45 +220,66 @@ export class LeadsService {
     message: string,
     detectedLanguage?: unknown,
   ): Promise<Call> {
-    const { session, call } = this.store.getCall(callId);
-    return this.calls.takeTurn(session.profile, call, message, detectedLanguage);
+    const { session, call } = await this.store.loadCall(callId);
+    try {
+      return await this.calls.takeTurn(
+        session.profile,
+        call,
+        message,
+        detectedLanguage,
+      );
+    } finally {
+      await this.store.saveCall(call);
+    }
   }
 
   /** Voice path, step one: record the user's line. The reply streams separately. */
-  addUserTurn(callId: string, message: string, detectedLanguage?: unknown) {
-    const call = this.store.getCall(callId).call;
+  async addUserTurn(
+    callId: string,
+    message: string,
+    detectedLanguage?: unknown,
+  ): Promise<void> {
+    const { call } = await this.store.loadCall(callId);
     this.calls.addUserTurn(call, message, detectedLanguage);
+    await this.store.saveCall(call);
   }
 
   /** Voice path, step two: stream the agent's reply sentence by sentence. */
-  streamAgent(
+  async streamAgent(
     callId: string,
     signal: AbortSignal,
     onSentence: (sentence: string) => void,
   ): Promise<void> {
-    const { session, call } = this.store.getCall(callId);
-    return this.calls.speakStream(session.profile, call, signal, onSentence);
+    const { session, call } = await this.store.loadCall(callId);
+    try {
+      await this.calls.speakStream(session.profile, call, signal, onSentence);
+    } finally {
+      // Even a turn cut short by a barge in is saved, so a reconnect to
+      // another instance resumes from what was actually said.
+      await this.store.saveCall(call);
+    }
   }
 
   /** Names speech to text should spell correctly: the company and its products. */
-  brandTerms(callId: string): string[] {
-    const { session } = this.store.getCall(callId);
+  async brandTerms(callId: string): Promise<string[]> {
+    const { session } = await this.store.loadCall(callId);
     return brandTerms(session.profile.name, session.profile.offerings);
   }
 
-  getCall(callId: string): Call {
-    return this.store.getCall(callId).call;
+  async getCall(callId: string): Promise<Call> {
+    return (await this.store.loadCall(callId)).call;
   }
 
   /** Hangs up. Scores the call once, and returns the same scorecard on repeat calls. */
   async endCall(callId: string): Promise<Scorecard> {
-    const { call } = this.store.getCall(callId);
+    const { call } = await this.store.loadCall(callId);
     call.ended = true;
+    await this.store.saveCall(call);
     return this.scorecard(callId);
   }
 
   async scorecard(callId: string): Promise<Scorecard> {
-    const { session, call } = this.store.getCall(callId);
+    const { session, call } = await this.store.loadCall(callId);
     if (call.scorecard) return call.scorecard;
     if (!call.turns.some((t) => t.speaker === 'user')) {
       throw new BadRequestException(
@@ -261,6 +287,7 @@ export class LeadsService {
       );
     }
     call.scorecard = await this.scoring.score(session.profile, call);
+    await this.store.saveCall(call);
     return call.scorecard;
   }
 }

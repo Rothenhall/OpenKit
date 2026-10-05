@@ -1,9 +1,17 @@
-export const BACKEND_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:4000";
+// Where the API lives. Unset means local development on port 4000. The value
+// "same-origin" means the API is served from the same domain as this app, as it
+// is when both run as services of one Vercel project.
+const configured = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:4000";
 
-export const WS_URL =
-  process.env.NEXT_PUBLIC_BACKEND_WS_URL ??
-  BACKEND_URL.replace(/^http/, "ws");
+export const BACKEND_URL = configured === "same-origin" ? "" : configured;
+
+/** The voice socket URL for a call. Resolved at call time so same-origin works in the browser. */
+export function voiceSocketUrl(callId: string): string {
+  const base =
+    process.env.NEXT_PUBLIC_BACKEND_WS_URL ??
+    (BACKEND_URL || window.location.origin).replace(/^http/, "ws");
+  return `${base}/tools/leads/voice?callId=${encodeURIComponent(callId)}`;
+}
 
 export type LanguageCode =
   | "en-IN"

@@ -12,7 +12,7 @@ export function WorkspaceHeader({ onReset }: { onReset: () => void }) {
 
   useEffect(() => {
     let live = true;
-    fetch(`${BACKEND_URL}/`, { cache: "no-store" })
+    fetch(`${BACKEND_URL}/health`, { cache: "no-store" })
       .then((r) => {
         if (live) setBackend(r.ok ? "live" : "offline");
       })

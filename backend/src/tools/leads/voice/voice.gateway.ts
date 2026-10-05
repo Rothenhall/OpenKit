@@ -83,7 +83,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly limiter: RateLimiter,
   ) {}
 
-  handleConnection(client: WebSocket, request: IncomingMessage) {
+  async handleConnection(client: WebSocket, request: IncomingMessage) {
     const callId = new URL(
       request.url ?? '',
       'http://localhost',
@@ -96,7 +96,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
     let call: Call;
     try {
-      call = this.leads.getCall(callId ?? '');
+      call = await this.leads.getCall(callId ?? '');
     } catch {
       this.send(client, 'error', {
         message: 'That call was not found. Start a call first.',
@@ -136,6 +136,9 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }, 20_000),
     );
     this.send(client, 'ready', { callId, language: call.language });
+    // The greeting is only for the start of a call. A client that reconnects
+    // mid call, for example when the server instance recycles, resumes quietly.
+    if (call.turns.some((t) => t.speaker === 'user')) return;
     return this.run(client, async () => {
       this.send(client, 'agent', await this.voice.greeting(call));
     });
@@ -172,7 +175,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.send(client, 'heard', { text, language: language ?? call.language });
       if (signal.aborted) {
         // Superseded while transcribing. Keep the words so context is not lost.
-        this.leads.addUserTurn(call.id, text, language);
+        await this.leads.addUserTurn(call.id, text, language);
         return;
       }
       await this.answer(client, call, text, language, signal, received);
@@ -244,7 +247,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return this.run(client, async () => {
       if (!callId) throw new Error('No call is attached to this connection');
       if (limited) this.limiter.hit(`voice:${callId}`, 90, 10 * MINUTE);
-      await work(this.leads.getCall(callId), controller.signal);
+      await work(await this.leads.getCall(callId), controller.signal);
     });
   }
 

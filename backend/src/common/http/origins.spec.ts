@@ -29,6 +29,19 @@ describe('isOriginAllowed', () => {
   });
 });
 
+describe('Vercel deployment hostnames', () => {
+  it('trusts the deployment the page was served from, and nothing else', () => {
+    process.env.FRONTEND_ORIGIN = 'https://rothenhall.com';
+    process.env.NODE_ENV = 'production';
+    process.env.VERCEL_URL = 'openkit-abc123-rothenhall.vercel.app';
+    process.env.VERCEL_PROJECT_PRODUCTION_URL = 'openkit-rho.vercel.app';
+    expect(isOriginAllowed('https://openkit-abc123-rothenhall.vercel.app')).toBe(true);
+    expect(isOriginAllowed('https://openkit-rho.vercel.app')).toBe(true);
+    expect(isOriginAllowed('https://rothenhall.com')).toBe(true);
+    expect(isOriginAllowed('https://other-app.vercel.app')).toBe(false);
+  });
+});
+
 describe('clientIp', () => {
   const request = (forwarded?: string) =>
     ({

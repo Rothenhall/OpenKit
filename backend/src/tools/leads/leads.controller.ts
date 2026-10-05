@@ -74,8 +74,8 @@ export class LeadsController {
   }
 
   @Get('sessions/:id')
-  getSession(@Param('id') id: string) {
-    return sessionView(this.leads.getSession(id));
+  async getSession(@Param('id') id: string) {
+    return sessionView(await this.leads.getSession(id));
   }
 
   @Patch('sessions/:id/profile')
@@ -112,8 +112,8 @@ export class LeadsController {
   }
 
   @Get('calls/:id')
-  getCall(@Param('id') id: string) {
-    return callView(this.leads.getCall(id));
+  async getCall(@Param('id') id: string) {
+    return callView(await this.leads.getCall(id));
   }
 
   /** Hangs up and returns the scorecard. */

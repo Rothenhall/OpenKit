@@ -53,7 +53,7 @@ export class LeadCaptureService {
   ) {}
 
   async capture(callId: string, lead: LeadInput): Promise<void> {
-    const { session, call } = this.store.getCall(callId);
+    const { session, call } = await this.store.loadCall(callId);
     await this.migrate();
     const record = this.record(session, call);
     await this.db.query(

@@ -112,9 +112,17 @@ describe('voice protocol', () => {
     c.ws.close();
   });
 
+  it('does not replay the greeting when a client reconnects mid call', async () => {
+    const c = await connect();
+    await c.until((e) => e.event === 'ready');
+    await sleep(300);
+    assert.equal(c.events.some((e) => e.event === 'agent'), false);
+    c.ws.close();
+  });
+
   it('transcribes audio, then replies', async () => {
     const c = await connect();
-    await c.until((e) => e.event === 'agent');
+    await c.until((e) => e.event === 'ready');
     c.send('audio', { audio: Buffer.alloc(4000).toString('base64'), mime: 'audio/wav' });
     const heard = await c.until((e) => e.event === 'heard');
     assert.equal(heard.data.text, 'Hi, this is Sam from Acme.');
@@ -124,7 +132,7 @@ describe('voice protocol', () => {
 
   it('stops on interrupt and keeps only what was heard', async () => {
     const c = await connect();
-    await c.until((e) => e.event === 'agent');
+    await c.until((e) => e.event === 'ready');
     const before = call.turns.length;
     c.send('text', { text: 'Tell me more.' });
     await c.until((e) => e.event === 'agent_chunk');
