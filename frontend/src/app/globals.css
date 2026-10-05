@@ -1,0 +1,295 @@
+@import "tailwindcss";
+
+@theme {
+  --color-canvas: #f7f3ea;
+  --color-canvas-2: #efe8d7;
+  --color-stage: #ece1c9;
+  --color-stage-line: #d8c9a9;
+  --color-ink: #1a1712;
+  --color-night: #14110c;
+  --color-copper: #c67c48;
+  --color-cognac: #a85c30;
+  --color-brass: #9a7a4a;
+  --color-line: #e3d9c3;
+  --font-display: "Jost", "Instrument Sans", Georgia, serif;
+  --font-sans: "Instrument Sans", "Jost", system-ui, sans-serif;
+}
+
+html {
+  background: var(--color-canvas);
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  overscroll-behavior: none;
+}
+
+.eyebrow {
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-cognac);
+}
+
+.grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.06;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
+}
+
+/* Warm studio stage for the orb. Top light like product photography,
+   parchment body, hairline edge. Dark is reserved for the scorecard. */
+.stage-beige {
+  background:
+    radial-gradient(
+      70% 55% at 50% 22%,
+      #faf5e8 0%,
+      rgba(250, 245, 232, 0) 60%
+    ),
+    linear-gradient(180deg, #f0e6d0 0%, var(--color-stage) 100%);
+  border: 1px solid var(--color-stage-line);
+}
+
+/* Soft floor shadow that grounds the floating orb. */
+.orb-shadow {
+  background: radial-gradient(
+    ellipse 50% 50% at 50% 50%,
+    rgba(26, 23, 18, 0.28),
+    rgba(26, 23, 18, 0) 70%
+  );
+  filter: blur(6px);
+}
+
+/* Session state dot. Pulses gently while the call is live. */
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.8);
+  }
+}
+
+.live-dot {
+  animation: live-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot {
+    animation: none;
+  }
+}
+
+/* Visible keyboard focus on every control, never removed without replacement. */
+:focus-visible {
+  outline: 2px solid var(--color-copper);
+  outline-offset: 2px;
+}
+
+/* Loading shimmer for the analyse theatre. */
+@keyframes loadslide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
+}
+
+/* ---------- Motion system: ambient, entrance, state ---------- */
+/* Decorative layers only. All transform/opacity, distinct durations. */
+
+@keyframes drift-a {
+  0%,
+  100% {
+    transform: translate3d(-4%, -2%, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(4%, 3%, 0) scale(1.08);
+  }
+}
+
+@keyframes drift-b {
+  0%,
+  100% {
+    transform: translate3d(5%, 2%, 0) scale(1.05);
+  }
+  50% {
+    transform: translate3d(-5%, -3%, 0) scale(0.97);
+  }
+}
+
+@keyframes float-y {
+  0%,
+  100% {
+    transform: translateY(-6px);
+  }
+  50% {
+    transform: translateY(6px);
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes eq-bounce {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes typing-bounce {
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+.typing-dot {
+  animation: typing-bounce 1.2s ease-in-out infinite;
+}
+
+@keyframes spin-slow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ambient-drift-a {
+  animation: drift-a 34s ease-in-out infinite;
+  will-change: transform;
+}
+
+.ambient-drift-b {
+  animation: drift-b 46s ease-in-out infinite;
+  will-change: transform;
+}
+
+.orb-float {
+  animation: float-y 7s ease-in-out infinite;
+}
+
+.anim-fade-up {
+  animation: fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--d, 0ms);
+}
+
+.anim-pop {
+  animation: pop-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.anim-bubble {
+  animation: bubble-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.eq-bar {
+  transform-origin: center;
+  animation: eq-bounce 0.9s ease-in-out infinite;
+}
+
+.eq-paused {
+  animation-play-state: paused;
+  transform: scaleY(0.3);
+}
+
+/* Timer rail drains smoothly, one second linear steps. */
+.timer-rail-fill {
+  transition: width 1s linear;
+}
+
+/* Thin warm scrollbar for interior scroll regions. */
+.thin-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-stage-line) transparent;
+}
+
+.thin-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.thin-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-stage-line);
+  border-radius: 999px;
+}
+
+.thin-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient-drift-a,
+  .ambient-drift-b,
+  .orb-float,
+  .eq-bar,
+  .typing-dot {
+    animation: none;
+    opacity: 1;
+  }
+  .anim-fade-up,
+  .anim-pop,
+  .anim-bubble {
+    animation-duration: 0.01ms;
+  }
+  .timer-rail-fill {
+    transition: none;
+  }
+}
+
+rothenhall-orb {
+  display: inline-block;
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 1;
+}
