@@ -18,10 +18,12 @@ import {
   parseAnalyse,
   parseCustomScenario,
   parseProfileUpdate,
+  parseLead,
   parseStartCall,
   parseTurn,
 } from './dto/leads.dto.js';
 import { LeadsService } from './leads.service.js';
+import { LeadCaptureService } from './lead-capture/lead-capture.service.js';
 import { VoiceService } from './voice/voice.service.js';
 import { RateLimiter } from '../../common/rate-limit/rate-limiter.js';
 import type { Call, Session } from './leads.types.js';
@@ -59,6 +61,7 @@ export class LeadsController {
     private readonly leads: LeadsService,
     private readonly voice: VoiceService,
     private readonly limiter: RateLimiter,
+    private readonly capture: LeadCaptureService,
   ) {}
 
   @Post('analyse')
@@ -119,6 +122,16 @@ export class LeadsController {
   @RateLimit('score', 30, HOUR)
   async endCall(@Param('id') id: string) {
     return this.leads.endCall(id);
+  }
+
+  /** The scorecard form: someone asks to be contacted. Saved to Postgres. */
+  @Post('calls/:id/lead')
+  @HttpCode(200)
+  @RateLimit('lead', 10, HOUR)
+  async captureLead(@Param('id') id: string, @Body() body: unknown) {
+    const lead = parseLead(body);
+    if (!lead.spam) await this.capture.capture(id, lead);
+    return { ok: true };
   }
 
   @Get('calls/:id/scorecard')

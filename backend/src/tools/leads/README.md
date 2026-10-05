@@ -156,7 +156,33 @@ The page needs https, since browsers only allow the microphone on secure pages. 
 that cannot do live audio the Start button is disabled with a plain explanation.
 
 **Funnel step.** This tool attracts sales and growth leaders who want to practise or see AI
-calling. The next step is the "Talk to us" link on every screen and in the scorecard.
+calling. The next step is the follow-up form on the scorecard, which saves the visitor as a lead.
+
+## Lead capture
+
+The scorecard ends with a short form: name, work email, optional role and phone, and a consent
+checkbox that must be ticked. `POST /tools/leads/calls/:id/lead` validates it and writes one row
+to `lead_captures` in Postgres (Neon, `DATABASE_URL`). The table is created on first use.
+
+- **The server reads the facts, not the form.** Company, site, mode, scenario, difficulty,
+  language, outcome and average score come from the call itself, so a lead cannot be forged.
+- **One row per call.** Submitting again for the same call updates it instead of duplicating.
+- **Spam.** A hidden field drops bots quietly, and the route is rate limited per address.
+- **Team alert.** Set `LEAD_WEBHOOK_URL` and every new lead is posted there (Slack incoming
+  webhook format, plain JSON for Zapier or Make). A failing webhook never affects the visitor.
+- **If the database is down** the form says it could not save and the visitor can retry. Nothing
+  else in the tool depends on it.
+- **Privacy.** The consent line links to the privacy policy: set `NEXT_PUBLIC_PRIVACY_URL` on the
+  frontend, and publish that page before launch. Leads are personal data, so plan how a person
+  asks to be removed (delete the row by email).
+
+Read recent leads:
+
+```sql
+select created_at, name, email, role, company_name, outcome, avg_score
+from lead_captures order by created_at desc limit 50;
+```
+
 
 ## Testing
 

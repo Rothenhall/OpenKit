@@ -1,5 +1,6 @@
 "use client";
 
+import { LeadCapture } from "@/components/trainer/LeadCapture";
 import { useEffect, useState } from "react";
 import { savePractice } from "@/lib/history";
 import type { Scorecard } from "@/lib/leads";
@@ -164,10 +165,12 @@ function BulletList({
 export function RepVerdict({
   score,
   company,
+  callId,
   onRetry,
 }: {
   score: Scorecard;
   company: string;
+  callId: string;
   onRetry: () => void;
 }) {
   useEffect(() => {
@@ -220,20 +223,7 @@ export function RepVerdict({
         />
       </div>
 
-      <div className="mt-4 rounded-xl border border-canvas/15 bg-canvas/5 p-4">
-        <p className="text-sm leading-relaxed text-canvas/85">
-          Want your whole team calling this well? Rothenhall runs the go-to-market
-          and revenue operations behind it.
-        </p>
-        <a
-          href="https://rothenhall.com/contact"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-3 inline-block rounded-lg bg-copper px-5 py-2.5 text-sm font-medium text-night"
-        >
-          Talk to Rothenhall
-        </a>
-      </div>
+      <LeadCapture callId={callId} company={company} />
 
       <button
         className="mt-6 cursor-pointer rounded-lg bg-canvas px-5 py-2.5 text-sm font-medium text-ink transition-transform duration-200 hover:scale-[1.03] active:scale-[0.98]"
@@ -252,10 +242,12 @@ export function RepVerdict({
 export function AiVerdict({
   score,
   company,
+  callId,
   onRetry,
 }: {
   score: Scorecard;
   company: string;
+  callId: string;
   onRetry: () => void;
 }) {
   useEffect(() => {
@@ -324,6 +316,8 @@ export function AiVerdict({
           Put one in my pipeline
         </a>
       </div>
+
+      <LeadCapture callId={callId} company={company} />
 
       <button
         className="mt-6 cursor-pointer rounded-lg bg-canvas px-5 py-2.5 text-sm font-medium text-ink transition-transform duration-200 hover:scale-[1.03] active:scale-[0.98]"

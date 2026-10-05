@@ -90,7 +90,7 @@ Rules:
 
 | Tool | Status | Notes |
 | --- | --- | --- |
-| `leads` | Built, ready to embed | Sarvam-powered sales call agent. Paste a website, get realistic scenarios, then take a live voice call as the rep or practise closing against an AI lead. Streaming voice, barge in, scorecard. No database, sessions in memory, run one instance. See `backend/src/tools/leads/README.md`. |
+| `leads` | Built, ready to embed | Sarvam-powered sales call agent. Paste a website, get realistic scenarios, then take a live voice call as the rep or practise closing against an AI lead. Streaming voice, barge in, scorecard, and a consent based follow-up form that saves leads to Postgres. Sessions in memory, run one instance. See `backend/src/tools/leads/README.md`. |
 
 ## Commands
 
@@ -112,7 +112,7 @@ npm run lint
 ## Current state
 
 `leads` is built end to end. `common/` holds the Sarvam client, rate limiting and HTTP helpers
-(origin allow list, client address). No database and no auth, on purpose: it is a free tool.
-Add them under `common/` when a tool needs them, not before.
+(origin allow list, client address) and `common/db/` (Postgres on Neon, lazy, used only for lead capture).
+Calls and sessions still live in memory. There is no auth, on purpose: it is a free tool.
 
 Deploying: see "Deploying and embedding" in `backend/src/tools/leads/README.md`.

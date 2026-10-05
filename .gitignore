@@ -1,3 +1,12 @@
 .claude/
 .DS_Store
 Thumbs.db
+.neon
+.env.local
+.env.local
+.env*.local
+.neon
+node_modules/
+node_modules/
+.env
+.next/

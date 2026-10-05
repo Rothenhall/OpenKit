@@ -139,6 +139,21 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ message }),
     }),
+  captureLead: (
+    callId: string,
+    lead: {
+      name: string;
+      email: string;
+      phone?: string;
+      role?: string;
+      consent: boolean;
+      website?: string;
+    },
+  ) =>
+    req<{ ok: true }>(`/tools/leads/calls/${callId}/lead`, {
+      method: "POST",
+      body: JSON.stringify(lead),
+    }),
   endCall: (callId: string) =>
     req<Scorecard>(`/tools/leads/calls/${callId}/end`, { method: "POST" }),
   addCustomScenario: (

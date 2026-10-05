@@ -148,3 +148,44 @@ export function parseProfileUpdate(input: unknown): ProfileUpdateDto {
   if (language) profile.language = language;
   return { profile, regenerate: b.regenerate === true };
 }
+
+export interface LeadDto {
+  name: string;
+  email: string;
+  phone?: string;
+  role?: string;
+  /** True when a bot filled the hidden field. Accept quietly and save nothing. */
+  spam: boolean;
+}
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+/** The scorecard form. Consent is required, it is the basis for contacting them. */
+export function parseLead(input: unknown): LeadDto {
+  const b = body(input);
+  if (typeof b.website === 'string' && b.website.trim()) {
+    return { name: '', email: '', spam: true };
+  }
+  if (b.consent !== true) {
+    throw new BadRequestException(
+      'Please tick the box so we can contact you about this.',
+    );
+  }
+  const name = requiredString(b.name, 'Your name', 120);
+  const email = requiredString(b.email, 'Your email', 254).toLowerCase();
+  if (!EMAIL.test(email)) {
+    throw new BadRequestException('That email address does not look right.');
+  }
+  let phone: string | undefined;
+  if (typeof b.phone === 'string' && b.phone.trim()) {
+    phone = b.phone.trim().slice(0, 30);
+    if (!/^[+\d][\d\s().-]{5,}$/.test(phone)) {
+      throw new BadRequestException('That phone number does not look right.');
+    }
+  }
+  const role =
+    typeof b.role === 'string' && b.role.trim()
+      ? b.role.trim().slice(0, 120)
+      : undefined;
+  return { name, email, phone, role, spam: false };
+}

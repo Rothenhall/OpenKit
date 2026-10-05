@@ -240,9 +240,19 @@ export function LiveCall({ initialCall, company, onExit }: Props) {
     return (
       <div className="thin-scroll anim-fade-up min-h-0 flex-1 overflow-y-auto rounded-2xl">
         {youAreRep ? (
-          <RepVerdict score={v.score} company={company} onRetry={onExit} />
+          <RepVerdict
+            score={v.score}
+            company={company}
+            callId={v.call.callId}
+            onRetry={onExit}
+          />
         ) : (
-          <AiVerdict score={v.score} company={company} onRetry={onExit} />
+          <AiVerdict
+            score={v.score}
+            company={company}
+            callId={v.call.callId}
+            onRetry={onExit}
+          />
         )}
       </div>
     );

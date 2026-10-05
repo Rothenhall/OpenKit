@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
+import { DbModule } from '../../common/db/db.module.js';
 import { RateLimitModule } from '../../common/rate-limit/rate-limit.module.js';
 import { SarvamModule } from '../../common/sarvam/sarvam.module.js';
 import { CallService } from './call/call.service.js';
+import { LeadCaptureService } from './lead-capture/lead-capture.service.js';
 import { LeadsController } from './leads.controller.js';
 import { LeadsService } from './leads.service.js';
 import { ScenariosService } from './scenarios/scenarios.service.js';
@@ -14,7 +16,7 @@ import { VoiceGateway } from './voice/voice.gateway.js';
 import { VoiceService } from './voice/voice.service.js';
 
 @Module({
-  imports: [SarvamModule, RateLimitModule],
+  imports: [SarvamModule, RateLimitModule, DbModule],
   controllers: [LeadsController],
   providers: [
     LeadsService,
@@ -25,6 +27,7 @@ import { VoiceService } from './voice/voice.service.js';
     CallService,
     ScoringService,
     SessionStore,
+    LeadCaptureService,
     VoiceService,
     VoiceGateway,
   ],
